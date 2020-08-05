@@ -57,6 +57,9 @@
 #include "user_config.h"
 //<+
 
+// ARJ
+#include "lvrom.h"
+
 using namespace std;
 
 /* Each Rom now has a Ram/Rom flag */
@@ -436,6 +439,11 @@ int BeebReadMem(int Address) {
 	// In the Master at least, ROMSEL/ACCCON seem to be duplicated over a 4 byte block.
 	if ((Address & ~3)==0xfe34 && MachineType==3) {
 		return(ACCCON);
+	}
+
+	// ARJ
+	if ((Address & ~0x3)==0xfe80) {
+	  return(LVROMRead(Address & 0x3));
 	}
 
 	if (((Address & ~0x1f)==0xfe80) && (MachineType!=3) && (NativeFDC)) {
@@ -822,6 +830,12 @@ void BeebWriteMem(int Address, int Value) {
 		return;
 	}
 
+	// ARJ
+	if ((Address & ~0x3)==0xfe80) {
+	  LVROMWrite((Address & 0x3),Value);
+	  return;
+	}
+
 	if (((Address & ~0x1f)==0xfe80) && (MachineType!=3) && (NativeFDC)) {
 		Disc8271_write((Address & 7),Value);
 		return;
@@ -1199,6 +1213,13 @@ void BeebMemInit(unsigned char LoadRoms,unsigned char SkipIntegraBConfig) {
 	  fclose(CMDF3);
   }
   else for(CMA3=0xe;CMA3<64;CMA3++) CMOSRAM[CMA3]=CMOSDefault[CMA3-0xe];
+
+  // ARJ2020
+  // Domesday setup
+  CMOSRAM[0x18]=0xe7;
+  CMOSRAM[0x13]=0xc8;
+  CMOSRAM[0x1e]=0x96;
+  
 } /* BeebMemInit */
 
 /*-------------------------------------------------------------------------*/

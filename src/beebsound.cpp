@@ -57,6 +57,9 @@
 //#define DEBUGSOUNDTOFILE
 
 #define PREFSAMPLERATE 22050
+// ARJ2020
+//#define PREFSAMPLERATE 11025
+//#define PREFSAMPLERATE 44100
 #define MAXBUFSIZE 32768
 
 static unsigned char SoundBuf[MAXBUFSIZE];
@@ -71,7 +74,7 @@ unsigned char SpeechBuf[MAXBUFSIZE];
 //-- static LPDIRECTSOUNDBUFFER DSB1 = NULL;
 int UsePrimaryBuffer=0;
 
-int SoundEnabled = 1;
+int SoundEnabled = 0; // ARJ2020
 int DirectSoundEnabled = 0;
 int RelaySoundEnabled = 0;
 int SoundChipEnabled = 1;
@@ -631,7 +634,7 @@ static void InitAudioDev(int sampleratein) {
 	DirectSoundEnabled=0;
 	samplerate = sampleratein;
 	SoundReset();
-	SoundEnabled=1;
+	SoundEnabled=0; // ARJ2020
 //<-
 
 }; /* InitAudioDev */
@@ -798,7 +801,8 @@ void SwitchOnSound(void) {
 
 void SetSound(char State) {
 	if (!SoundEnabled) return;
-	if (State==MUTED) MuteSound();
+	if (State==MUTED) {MuteSound(); SDL_PauseAudio(1);} // ARJ
+	else {	SDL_PauseAudio(0); } // ARJ
 }
 
 

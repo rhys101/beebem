@@ -18,12 +18,13 @@
 /* program.                                                                 */
 /* Please report any problems to the author at beebem@treblig.org           */
 /****************************************************************************/
-
+#include <emscripten.h>
 #if HAVE_CONFIG_H
 # include <config.h>
 #endif
 
 #include "sdl.h"
+#include <SDL_image.h>
 
 #include "line.h"
 #include "log.h"
@@ -86,7 +87,8 @@ void InitializeSoundBuffer(void)
 
 	int i;
 	for(i=0; i< SOUND_BUFFER_SIZE; i++)
-		SDLSoundBuffer[i] = (Uint8) 0;	
+		SDLSoundBuffer[i] = (Uint8) 0;
+	
 }
 
 // When the user switches to the menu, use it as an excuse to flush the buffer.
@@ -254,6 +256,14 @@ SDL_Surface *icon = NULL;
 
 SDL_Surface *video_output = NULL;
 SDL_Surface *screen_ptr = NULL;
+SDL_Window *sdlWindow = NULL;
+SDL_Renderer *sdlRenderer = NULL;
+SDL_Texture *sdlTexture = NULL;
+
+SDL_Surface *sdlBackgroundImage = NULL;
+//SDL_Texture *sdlBackgroundTexture = NULL;
+int lvromImageStatus = 0;
+int lvromDisplayStatus = 1;
 
 /* If we're using X11, we need to release the Caps Lock key ourselves.
  */
@@ -266,8 +276,8 @@ int	cfg_HaveX11 = 0;
 int	cfg_EmulateCrtGraphics = 1;
 int	cfg_EmulateCrtTeletext = 0;
 
-int 	cfg_Fullscreen_Resolution = RESOLUTION_640X480_S; // -1;
-int	cfg_Windowed_Resolution = RESOLUTION_640X480_S;  // -1;
+int 	cfg_Fullscreen_Resolution = RESOLUTION_640X512; //RESOLUTION_640X480_S; // -1;
+int	cfg_Windowed_Resolution = RESOLUTION_640X512; //RESOLUTION_640X480_S;  // -1;
 int	cfg_VerticalOffset = ((512-480)/2);
 
 /* If this is defined then the sound code will dump samples (causing distortion)
@@ -328,6 +338,8 @@ void fill_audio(void *udata, Uint8 *stream, int len)
 
 	p = GetSoundBufferPtr();
 	len = GetBytesFromSDLSoundBuffer(len);
+	// ARJ
+	SDL_memset(stream, 0, len) ;
 	SDL_MixAudio(stream, p, len, SDL_MIX_MAXVOLUME);
 }
 
@@ -361,7 +373,7 @@ int InitializeSDLSound(int soundfrequency)
 	InitializeSoundBuffer();
 
 	SDL_PauseAudio(0);
-	SDL_Delay(500);
+	// ARJ SDL_Delay(500);
 
 	return(1);
 }
@@ -376,18 +388,19 @@ void FreeSDLSound(void)
 void SetBeebEmEmulatorCoresPalette(unsigned char *cols, int palette_type)
 {
 	SDL_Color colors[8];
-
 	/* BeebEm video.cpp needs to use colors 0 to 7.
 	 */
 	for(int i=0;i<8;i++)
 		*(cols++) = (unsigned char) i;
 
+	/*
+	// ARJ
 	if (screen_ptr == NULL){
 		fprintf(stderr, "Trying to read palette before window is"
 		 " opened!\nYou will need to fix this..");
 		exit(1);
 	}
-
+	*/
 	/* Set the palette:
 	 */
 	for (int i = 0; i < 8; ++i){
@@ -414,19 +427,20 @@ void SetBeebEmEmulatorCoresPalette(unsigned char *cols, int palette_type)
 			}
 		}
 
-		colors[i].r = (int) r;
+		// ARJ Update for SDL 2
+		colors[i].r = (int) r; // b;
 		colors[i].g = (int) g;
-		colors[i].b = (int) b;
+		colors[i].b = (int) b; // r; 
+		colors[i].a = 255;
 	}
-	
 	/* Set bitmaps palette.
 	 */
-	SDL_SetColors(video_output, colors, 0, 8);
+	SDL_SetPaletteColors(video_output->format->palette, colors, 0, 8);
 
 	/* Force X Servers palette to change to our colors.
 	 */
 //#ifdef WITH_FORCED_CM
-	SDL_SetColors(screen_ptr, colors, 0, 8);
+	SDL_SetPaletteColors(screen_ptr->format->palette, colors, 0, 8);
 //#endif
 
 	/* Set LED colors.
@@ -435,10 +449,10 @@ void SetBeebEmEmulatorCoresPalette(unsigned char *cols, int palette_type)
 	colors[1].r = 255; colors[1].g = 0; colors[1].b = 0;
 	colors[2].r = 0; colors[2].g = 127; colors[2].b = 0;
 	colors[3].r = 0; colors[3].g = 255; colors[3].b = 0;
-	SDL_SetColors(video_output, colors, 64, 4);
+	SDL_SetPaletteColors(video_output->format->palette, colors, 64, 4);
 
 //#ifdef WITH_FORCED_CM
-	SDL_SetColors(screen_ptr, colors, 64, 4);
+	SDL_SetPaletteColors(screen_ptr->format->palette, colors, 64, 4);
 //#endif
 
 	/* Menu colors.
@@ -458,12 +472,15 @@ void SetBeebEmEmulatorCoresPalette(unsigned char *cols, int palette_type)
         colors[3].b = (int) (colors[0].b * 0.9);
 
 
-	SDL_SetColors(video_output, colors, 68, 4);
+	SDL_SetPaletteColors(video_output->format->palette, colors, 68, 4);
 
 //#ifdef WITH_FORCED_CM
-	SDL_SetColors(screen_ptr, colors, 68, 4);
+	SDL_SetPaletteColors(screen_ptr->format->palette, colors, 68, 4);
 //#endif
 
+	// ARJ2222
+	SDL_SetSurfaceAlphaMod(video_output, 254); // Keep alpha on the books so that we can blend as needed
+	SDL_SetSurfaceBlendMode(video_output, SDL_BLENDMODE_BLEND);
 }
 
 void CreateScalingTable(void)
@@ -504,14 +521,13 @@ int Create_Screen(void)
 //printf("1: start\n");
 
 	// When running in fullscreen mode remember you can exit BeebEm by
-	flags = SDL_SWSURFACE /* | SDL_FULLSCREEN */ ;
-
+	flags = SDL_WINDOW_OPENGL; // SDL_SWSURFACE /* | SDL_FULLSCREEN */ ;
 
 	/* Fullscreened:
 	 */
 //	if ( fullscreen==1) {
 	if ( mainWin!=NULL && mainWin->IsFullScreen() ) {
-		flags|=SDL_FULLSCREEN;
+		flags|=SDL_WINDOW_FULLSCREEN;
 
 		switch (cfg_Fullscreen_Resolution){
 		case RESOLUTION_640X480_S:
@@ -566,16 +582,17 @@ int Create_Screen(void)
 	}
 
 #ifdef WITH_FORCED_CM
-		flags|= SDL_HWPALETTE;
+	//flags|= SDL_HWPALETTE; // ARJ
 #endif
 
-//printf("2: flags set\n");
+	//printf("2: flags set\n");
 
 	/* Make sure screen surface was free'd.
 	 */
 	if (screen_ptr != NULL) Destroy_Screen();
 
  //      if ( (screen_ptr=SDL_SetVideoMode(SDL_WINDOW_WIDTH, SDL_WINDOW_HEIGHT
+	/*
         if ( (screen_ptr=SDL_SetVideoMode(width, height
 	 , 8, flags ) ) == NULL){
                 fprintf(stderr, "Unable to set video mode: %s\n"
@@ -583,12 +600,43 @@ int Create_Screen(void)
 
                 return false;
         }
+	*/
+	sdlWindow = SDL_CreateWindow("Beebem",
+                          SDL_WINDOWPOS_UNDEFINED,
+                          SDL_WINDOWPOS_UNDEFINED,
+				     720, 576, SDL_WINDOW_SHOWN);
+				     //				  width, height, SDL_WINDOW_SHOWN);
+	if (sdlWindow == NULL)
+        {
+            printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+        }
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);	
+	
+	/*
+	screen_ptr = SDL_CreateRGBSurface(0, width, height, 8,
+                                        0x00FF0000,
+                                        0x0000FF00,
+                                        0x000000FF,
+                                        0xFF000000);
+	*/
+	screen_ptr = SDL_GetWindowSurface(sdlWindow);
+	sdlTexture = SDL_CreateTexture(sdlRenderer,
+				       SDL_PIXELFORMAT_ABGR8888, // ARJ2020
+                                            SDL_TEXTUREACCESS_STREAMING,
+				       720, 556);
+				       //720, 576);
+				       //width, height);
 
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
+	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
+
+	
 	/* Update GUI pointers to screen surface.
 	 */
+
 	ClearWindowsBackgroundCacheAndResetSurface();
 
-//printf("3: SDL_SetVideoMode called\n");
+	//printf("3: SDL_SetVideoMode called\n");
 
 
 	/* Give our new surface the same palette as the physical application
@@ -604,22 +652,26 @@ int Create_Screen(void)
 
 //DL_SetColors(SDL_Surface *surface, SDL_Color *colors, int firstcolor, int ncolors);
 
-	SDL_SetColors(screen_ptr, video_output->format->palette->colors, 0
+	//printf(":: %d\n", video_output->format->palette->ncolors); // CAST issue? ARJ
+         video_output->format->palette->ncolors = 256;
+	//SDL_SetColors(screen_ptr, video_output->format->palette->colors, 0, 256); // ARJ
+	SDL_SetPaletteColors(screen_ptr->format->palette, video_output->format->palette->colors, 0
 	 , video_output->format->palette->ncolors-1);
 
-//printf("4: SDL_SetColors called\n");
+	//printf("4: SDL_SetColors called\n");
 
 
 	ClearVideoWindow();	
 
-//printf("5: ClearVideoWindow called - now returning with true\n");
+	//printf("5: ClearVideoWindow called - now returning with true\n");
 
 	return true;
 }
 
 void Destroy_Screen(void)
 {
-	if (screen_ptr != NULL) SDL_FreeSurface(screen_ptr);
+  if (screen_ptr != NULL) SDL_FreeSurface(screen_ptr);
+  screen_ptr = NULL; // ARJ
 }
 
 
@@ -634,10 +686,9 @@ int InitialiseSDL(int argc, char *argv[])
 	tmp_argv=argv;
 	tmp_argc = argc;
 
-
         /* Initialize SDL and handle failures.
          */     
-        if (SDL_Init(SDL_INIT_VIDEO /* | SDL_INIT_AUDIO */) <0) {
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO ) <0) {
                         fprintf(stderr, "Unable to initialise SDL: %s\n"
                          , SDL_GetError());
                         return false;
@@ -647,30 +698,37 @@ int InitialiseSDL(int argc, char *argv[])
          */
          atexit(SDL_Quit);
 
-
 	/* If we are using X11 set Caps lock so it's immediately released.
 	 */
+	 /*
 	if (SDL_VideoDriverName(video_hardware, 1024) != NULL){
 		if (strncasecmp(video_hardware, "x11", 1024) == 0)
 			cfg_HaveX11 = 1;
 	}
-
+	 */
+	 /*
 	icon = SDL_LoadBMP(DATA_DIR"/resources/icon.bmp");
 	if (icon != NULL){
-		SDL_SetColorKey(icon, SDL_SRCCOLORKEY, SDL_MapRGB(icon->format
+		SDL_SetColorKey(icon, SDL_TRUE, SDL_MapRGB(icon->format
 		 , 0xff, 0x0, 0xff));
-		SDL_WM_SetIcon(icon, NULL);
+		SDL_SetWindowIcon(sdlWindow, icon);
 	}
-
+	 */
 	// [HERE] Create Screen.
 
 //	SDL_ShowCursor(SDL_DISABLE);		// SDL_ENABLE
 
+	// Create scaling table to convert 512/256 to 480/240
+	CreateScalingTable();
+
+	// Create the default screen.
+	int r=Create_Screen();
+	
 	/* Create an area the BeebEm emulator core (the Windows code)
 	 * can draw on.  It's hardwired to an 800x600 8bit byte per pixel
 	 * bitmap.
 	 */
-	flags = SDL_SWSURFACE; 
+	flags = SDL_SWSURFACE;  
 	if ( (video_output = SDL_CreateRGBSurface(flags
 	 , BEEBEM_VIDEO_CORE_SCREEN_WIDTH, BEEBEM_VIDEO_CORE_SCREEN_HEIGHT
 	 , 8, 0, 0, 0, 0) ) == NULL){
@@ -679,12 +737,6 @@ int InitialiseSDL(int argc, char *argv[])
 		return false;
 	}
 
-	// Create scaling table to convert 512/256 to 480/240
-	CreateScalingTable();
-
-	// Create the default screen.
-	int r=Create_Screen();
-
 	// Setup colors so we at least have something. The emulator core will
 	// changes these later when the fake registry is read, but we want
 	// enough colors set so the GUI (the message box) will be rendered
@@ -692,6 +744,11 @@ int InitialiseSDL(int argc, char *argv[])
 	unsigned char cols[8];
 	SetBeebEmEmulatorCoresPalette(cols, BeebWin::RGB);
 
+	// ARJ
+	// Make black transparent
+	//SDL_SetColorKey(video_output, SDL_TRUE, SDL_MapRGB(video_output->format, 0, 0, 0) );
+
+	
 	return r;
 
 //	InitializeSDLSound(22050);		// Fix hardwiring later..
@@ -795,7 +852,7 @@ static void SleepAndBusyWait(Uint32 u32TimeShouldWait, Uint16 u16MinTime)
 
         // Only sleep if we are sure the OS can honnor it:
         if(u32TimeShouldWait >= u16MinTime){
-                SDL_Delay(u32TimeShouldWait);
+                // ARJ SDL_Delay(u32TimeShouldWait);
         }else{
 		BusyWait(u32TimeShouldWait, u32StartTickCount);
 	}
@@ -821,7 +878,7 @@ void SaferSleep(unsigned int uiTicks)
 	/* Just pass all waits period to OS:
 	 */
 	case OPT_SLEEP_OS:
-		SDL_Delay(uiTicks);
+		// ARJ SDL_Delay(uiTicks);
 		break;
 
 	/* Only pass wait to OS if period is greater or equal to 2 ms:
@@ -915,12 +972,67 @@ void SaferSleep2(unsigned int uiTicks)
 // Clear video window
 void ClearVideoWindow(void)
 {
-	Uint32 col = SDL_MapRGB(screen_ptr->format, 0x00, 0x00, 0x00);
-
-	SDL_FillRect(screen_ptr, NULL, col);
-	SDL_UpdateRect(screen_ptr,0,0,screen_ptr->w,screen_ptr->h);
+  Uint32 col = SDL_MapRGB(screen_ptr->format, 0x00, 0x00, 0x00);
+  SDL_FillRect(screen_ptr, NULL, col);
+  SDL_UpdateTexture(sdlTexture, NULL, screen_ptr->pixels, screen_ptr->pitch);
+  SDL_RenderClear(sdlRenderer);
+  SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+  SDL_RenderPresent(sdlRenderer);
+  
 }
 
+void RenderBackground() {
+  //  Clear background image
+  if (lvromImageStatus == 0) {
+    if(sdlBackgroundImage != NULL) {
+      //SDL_DestroyTexture(sdlBackgroundTexture);
+      SDL_FreeSurface(sdlBackgroundImage);
+      //sdlBackgroundTexture = NULL;
+      sdlBackgroundImage = NULL;
+      Uint32 col = SDL_MapRGB(screen_ptr->format, 0x00, 0x00, 0x00);
+      SDL_FillRect(screen_ptr, NULL, col);
+    }
+  }
+  // Load backgroud image
+  if (lvromImageStatus == 1) {
+    if(sdlBackgroundImage == NULL) {
+      //SDL_DestroyTexture(sdlBackgroundTexture);
+      SDL_FreeSurface(sdlBackgroundImage);
+    }
+    sdlBackgroundImage = IMG_Load("/img.jpg");
+    //sdlBackgroundTexture = SDL_CreateTextureFromSurface(sdlRenderer, sdlBackgroundImage);
+    lvromImageStatus = 2; // done by VP commands
+  }
+  // Display background image
+  if ( (lvromImageStatus == 2) || (lvromImageStatus == 3) ) {
+    SDL_Rect rect = {-55, -10, 720+120,576+3}; 
+    // ARJ
+    if (lvromDisplayStatus == 0) {
+      Uint32 col = SDL_MapRGB(screen_ptr->format, 0x00, 0x00, 0x00);
+      SDL_FillRect(screen_ptr, NULL, col);
+    } else {      
+      SDL_BlitScaled(sdlBackgroundImage, NULL, screen_ptr, &rect);
+    }
+    SDL_SetColorKey(video_output, SDL_TRUE, SDL_MapRGB(video_output->format, 0, 0, 0) );
+  }
+  // ARJ
+  if (lvromDisplayStatus == 2) {
+    SDL_SetSurfaceAlphaMod(video_output, 127); // Blended overlay
+  } else {
+    SDL_SetSurfaceAlphaMod(video_output, 254);
+  }
+}
+
+void RenderTexture() {
+  // Display Text
+  if ( lvromImageStatus != 3) {
+    SDL_UpdateTexture(sdlTexture, NULL, screen_ptr->pixels, screen_ptr->pitch);
+  }
+  SDL_RenderClear(sdlRenderer);
+  SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+  SDL_RenderPresent(sdlRenderer);
+  SDL_SetColorKey(video_output, SDL_FALSE, SDL_MapRGB(video_output->format, 0, 0, 0) );
+}
 
 void RenderLine(int line, int isTeletext, int xoffset)
 {
@@ -946,10 +1058,14 @@ void RenderLine(int line, int isTeletext, int xoffset)
 	}
 
 	// Don't bother to render if not active.
+	/*
+	// ARJ
 	if ( (SDL_GetAppState() & SDL_APPACTIVE) == 0)
 		return;
+	*/
 
-	//printf("%d\n", xoffset);
+	//if (line <2)  // ARJ
+	//printf("%d : %d\n", line, xoffset);
 
 	// If mode changes between teletext and graphics clear the screen.
 	// *** this could really be nasty with split gfx res stuff.  Fuck it..
@@ -1009,7 +1125,6 @@ void RenderLine(int line, int isTeletext, int xoffset)
 				break;
 			}
 
-
 //#ifdef EMULATE_CRT
 			if ( cfg_EmulateCrtTeletext == 0 || (line & 1) == 1 || disable_grille_for_teletext ==1){
 //#endif
@@ -1023,12 +1138,14 @@ void RenderLine(int line, int isTeletext, int xoffset)
 
 				//dst.x +=40; dst.w -=40; dst.y+=8;
 
-				if (dst.y < screen_ptr->h){
+			  if (dst.y < screen_ptr->h){
 					SDL_BlitSurface(video_output, &src
 					 , screen_ptr, &dst);
-					SDL_UpdateRect(screen_ptr, dst.x, dst.y
-					 , dst.w, dst.h);
+					//SDL_UpdateRect(screen_ptr, dst.x, dst.y
+					// , dst.w, dst.h);
+
 				}
+			  
 //#ifdef EMULATE_CRT
 			}
 //#endif
@@ -1087,43 +1204,58 @@ void RenderLine(int line, int isTeletext, int xoffset)
 
 			src.x=0; src.y=line; 
 
+			// ARJ2020
 //			src.w=SDL_WINDOW_WIDTH;
-			src.w=screen_ptr->w;
+			src.w=640; //screen_ptr->w;
 
-//			printf("kjlfkjdflfjd\n");
 
 			src.h=1;
 
-			dst.x=0;			
+			dst.x=40; // ARJ2020
 
-			dst.y=window_y;
+			dst.y=window_y+28;
 
 //			dst.w=SDL_WINDOW_WIDTH;
-			dst.w=screen_ptr->w;
+			dst.w=640; //screen_ptr->w;
 
 			dst.h=1;
 
 			if (dst.h<screen_ptr->h){
-				SDL_BlitSurface(video_output, &src, screen_ptr
-				 , &dst);
-				SDL_UpdateRect(screen_ptr, 0, window_y
-				 , screen_ptr->w, 1);
+			  //SDL_LowerBlitScaled(video_output, &src, screen_ptr, &dst);
+			  SDL_BlitSurface(video_output, &src, screen_ptr, &dst);
+			  //SDL_BlitScaled(video_output, &src, screen_ptr, &dst);
+				// ARJ
+				//SDL_UpdateRect(screen_ptr, 0, window_y
+				// , screen_ptr->w, 1);
 			}
 
 //			printf("Line: %d %d\n", (int) dst.y, (int) dst.h);
 
 			// Graphics mode is never more than 256 scanlines so
 			// double up the lines
-			src = dst;
+
+			// ARJ2020
+			//			src = dst;
+			//			dst.y +=1;
+
 			dst.y +=1;
+
+			if (dst.h<screen_ptr->h){
+			  SDL_BlitSurface(video_output, &src, screen_ptr, &dst);
+			  //SDL_BlitScaled(video_output, &src, screen_ptr, &dst);
+			}
+			src = dst;
+			scan_double = 0;
 
 //#ifndef EMULATE_CRT
 			if ( scan_double && (! cfg_EmulateCrtGraphics) ){
 //				printf("Doing scan double\n");
 				SDL_BlitSurface(screen_ptr, &src, screen_ptr
 				 , &dst);
-				SDL_UpdateRect(screen_ptr, 0, window_y+1
-				 , screen_ptr->w, 1);
+				/*
+				  SDL_UpdateRect(screen_ptr, 0, window_y+1
+				  , screen_ptr->w, 1);
+				*/
 			}
 //#endif
 //			SDL_UpdateRect(screen_ptr, 0, window_y , SDL_WINDOW_WIDTH
@@ -1231,7 +1363,7 @@ void RenderFullscreenFPS(const char *str, int y)
 
 void SetWindowTitle(char *title)
 {
-	SDL_WM_SetCaption(title, NULL);
+  SDL_SetWindowTitle(sdlWindow, title); // ARJ
 }
 
 unsigned char* GetSDLScreenLinePtr(int line)
@@ -1293,7 +1425,7 @@ static struct BeebKeyTrans SDLtoBeebEmKeymap[]={
 {SDLK_RSHIFT,		0,0},	// SHIFT
 
 {SDLK_CAPSLOCK,		4,0},    // CAPS LOCK (Totally fucked up in SDL..)
-{SDLK_LSUPER,		4,0},	// CAPS LOCK (so Alt Gr is also CAPS-LOCK..)
+//{SDLK_LSUPER,		4,0},	// CAPS LOCK (so Alt Gr is also CAPS-LOCK..)
 
 {SDLK_ESCAPE,		7,0},    // ESCAPE
 {SDLK_SPACE,		6,2},    // SPACE
@@ -1395,7 +1527,7 @@ static struct BeebKeyTrans SDLtoBeebEmKeymap[]={
  * have been set)
  */
 
-int ConvertSDLKeyToBBCKey(SDL_keysym keysym /*, int *pressed */, int *col
+int ConvertSDLKeyToBBCKey(SDL_Keysym keysym /*, int *pressed */, int *col
  , int *row)
 {
 //	int bsymwaspressed;

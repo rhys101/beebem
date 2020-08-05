@@ -1,28 +1,37 @@
-** THIS IS A PRE-RELEASE! **
-
-To install:
-
----
-
-Install in home account (for a specific user only):
+BBC Domesday Emulator
+=====================
+Rhys Jones, 2020
 
 
-# Extract the source code tarball:
-tar zxvf beebem-0.0.8.tar.gz
-cd beebem-0.0.8
+These are the sources for the BBC Domesday emulator.
+It is a patched version of BeebEm 0.0.13 with support for the BBC Domesday LV ROM system.
 
-./configure --prefix=$HOME/test --enable-econet
-make
-make install
+The oringal BeebEm for Linux can be found at https://github.com/stardot/beebem/tree/rel-0.0.13-linux
 
----
+To build, first install the Emscripten toolchain for targeting WebAssembly from https://emscripten.org/
+If you are updating Emscripten on your machine, you may also need to run:
 
-Install as root (global install for all users):
+emcc --clear-ports
 
 
-tar zxvf beebem-0.0.8.tar.gz
-cd beebem-0.0.8
+Run the configuration commands:
 
-./configure --enable-econet
-make
-make install-strip
+./reconf
+automake --add-missing
+emconfigure ./configure CXXFLAGS='-g -O3 -s USE_ZLIB=1 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s ASYNCIFY'
+
+Then compile:
+
+emmake make
+
+To create a web assembly bundle, run:
+
+cp src/beebem beebem.bc
+emcc -O3 beebem.bc -o beebem.html --preload-file usr/local/share/beebem/ --use-preload-plugins -s TOTAL_MEMORY=256MB -s WASM=1 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_ZLIB=1 -s ASYNCIFY -s 'ASYNCIFY_IMPORTS=["get_lvrom_sector"]' -s 'EXTRA_EXPORTED_RUNTIME_METHODS=["writeArrayToMemory"]'
+
+Note that the data and images from the LVRom discs is not included in this source bundle.
+You will need to obtain these from your own copy of the LVRom discs.
+
+
+
+

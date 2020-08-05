@@ -5,11 +5,6 @@ SHELL=@SHELL@
 pkgdata_DATA = config/econet.cfg config/phroms.cfg config/roms.cfg config/roms_torch.cfg \
 		config/roms_bbc.cfg \
 		\
-		media/discs/econet_level_1_utils.ssd media/discs/econet_level_2_utils.ssd \
-		media/discs/games.ssd media/discs/master_welcome.adl media/discs/test.ssd \
-		media/discs/welcome.ssd media/discs/bbcmaster512-disc1-dosplusboot.adl \
-		media/discs/cpm_utilities_disc.dsd \
-		\
 		media/scsi/sasi0.dat \
 		media/scsi/scsi0.dat media/scsi/scsi0.dsc \
 		media/scsi/scsi1.dat media/scsi/scsi1.dsc \
@@ -115,14 +110,6 @@ uninstall:
 	rm -fv   $(pkgdatadir)/media/scsi/scsi3.dsc
 	rmdir -v $(pkgdatadir)/media/scsi
 #
-	rm -fv   $(pkgdatadir)/media/discs/bbcmaster512-disc1-dosplusboot.adl
-	rm -fv   $(pkgdatadir)/media/discs/cpm_utilities_disc.dsd
-	rm -fv   $(pkgdatadir)/media/discs/econet_level_1_utils.ssd
-	rm -fv   $(pkgdatadir)/media/discs/econet_level_2_utils.ssd
-	rm -fv   $(pkgdatadir)/media/discs/games.ssd
-	rm -fv   $(pkgdatadir)/media/discs/master_welcome.adl
-	rm -fv   $(pkgdatadir)/media/discs/test.ssd
-	rm -fv   $(pkgdatadir)/media/discs/welcome.ssd
 	rmdir -v $(pkgdatadir)/media/discs
 #
 	rmdir -v $(pkgdatadir)/media

@@ -451,7 +451,7 @@ BeebWin::~BeebWin()
 //+>
 //## From beebwin.h
 
-void BeebWin::doHorizLine(unsigned long Col, int y, int sx, int width) {
+void BeebWin::doHorizLine(unsigned int Col, int y, int sx, int width) {
 //->            if (TeletextEnabled) y/=TeletextStyle;
 //--            int d = (y*800)+sx+ScreenAdjust+(TeletextEnabled?36:0);
 //--            if ((d+width)>(500*800)) return;
@@ -504,13 +504,18 @@ void BeebWin::doHorizLine(unsigned long Col, int y, int sx, int width) {
 
                 if ( d < 0) { return; } // qERROR("[0332]: d < 0"); return; }
 
-                p = (unsigned char*) GetSDLScreenLinePtr(y-2);
+		// ARJ
+		//memset(((unsigned char*)video_output->pixels + (y-2) * video_output->pitch) + (unsinged char *)d, Col, width);
+		//unsigned char *x = (unsigned char *)video_output->pixels + (y-2)*video_output->pitch + d;
+		//unsigned char *x = (unsigned char *)video_output->image->data + (y-2)*video_output->pitch + d;
+                p = GetSDLScreenLinePtr(y-2);
                 if (p == NULL){
                         qERROR("GetSDLScreenLinePtr returned NULL!");
                         exit(1);
                 }else{
-                        memset(p + d, Col, width);
+		  memset((p+d), Col, width);
                 }
+				
 //<-
         };
 
@@ -2045,11 +2050,15 @@ void BeebWin::updateLines(HDC hDC, int starty, int nlines)
 	}
 #endif
 
+	RenderBackground();
+	
 	for(i = 0; i < nlines; i++){
 		if (i+starty < 600)
 			RenderLine(i+starty, (int) TeletextEnabled, ScreenAdjust);
 
 	}
+
+	RenderTexture();
 //<+
 
 }
@@ -2105,8 +2114,11 @@ BOOL BeebWin::UpdateTiming(void)
 		DisplayTiming();
 	}
 
-	// Now we work out if BeebEm is running too fast or not
-	if (m_RealTimeTarget > 0.0)
+	// Now we work out if BeebEm is runnsing too fast or not
+	//if (m_RealTimeTarget > 0.0)
+	// ARJ hack for now
+	m_FPSTarget = 25; // ARJ
+	if (0) // ARJ
 	{
 		Ticks = TickCount - m_TickBase;
 		Cycles = (int)((double)(TotalCycles - m_CycleBase) / m_RealTimeTarget);
@@ -2171,18 +2183,21 @@ BOOL BeebWin::UpdateTiming(void)
 
 	m_LastTickCount = TickCount;
 	m_LastTotalCycles = TotalCycles;
-
 	return UpdateScreen;
 }
 
 /****************************************************************************/
 void BeebWin::DisplayTiming(void)
 {
+  // ARJ
+  //sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d",WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond);
+  //printf("Timing: %s\n", m_szTitle);
 	if (m_ShowSpeedAndFPS && (!m_DirectDrawEnabled || !m_isFullScreen))
 	{
 		sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d",
 				WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond);
 		SetWindowText(m_hWnd, m_szTitle);
+		printf("Timing: %s\n", m_szTitle);
 	}
 }
 
@@ -2617,8 +2632,14 @@ int BeebWin::ReadDisc(int Drive,HMENU dmenu)
 //+>
 //<+
 
-	gotName = Open_GTK_File_Selector(FileName);
+	//gotName = Open_GTK_File_Selector(FileName);
+	printf("Open_GTK_File_Selector\n");
+	gotName=TRUE;
+	strcpy(FileName, "/usr/local/share/beebem/media/discs/games.ssd");
+	//strcpy(FileName, "/usr/local/share/beebem/media/discs/Elite.ssd");
+	//strcpy(FileName, "/usr/local/share/beebem/media/discs/bbcmaster512-disc1-dosplusboot.adl");
 
+	
 	if (gotName)
 	{
 //--		unsigned PathLength = strrchr(FileName, '\\') - FileName;
@@ -2757,7 +2778,9 @@ void BeebWin::LoadTape(void)
 //--
 //--	if (GetOpenFileName(&ofn))
 //+>
-        if (Open_GTK_File_Selector(FileName) == true)
+        //if (Open_GTK_File_Selector(FileName) == true)
+	printf("Open_GTK_File_Selector 2 \n");
+	if (1==0) 
 //<+
 	{
 //--		unsigned PathLength = strrchr(FileName, '\\') - FileName;
@@ -2840,7 +2863,9 @@ void BeebWin::NewTapeImage(char *FileName)
 
 	/* Request new filename from user:
 	 */
-	if (Save_GTK_File_Selector(FileName) != true) {
+	printf("Save_GTK_File_Selector\n");
+	if (1==0) {
+	  //if (Save_GTK_File_Selector(FileName) != true) {
 		/* If none given, or file dialog returned error
 		 * fail:
 		 */
@@ -2988,7 +3013,9 @@ void BeebWin::NewDiscImage(int Drive)
 //--
 //--	if (GetSaveFileName(&ofn))
 //++
-	if (Save_GTK_File_Selector(FileName) == true) {
+	printf("Save_GTK_File_Selector 2\n");
+	//if (Save_GTK_File_Selector(FileName) == true) {
+	if(1==0) {
 //++<
 //--	{
 //--		unsigned PathLength = strrchr(FileName, '\\') - FileName;
@@ -3112,7 +3139,9 @@ void BeebWin::SaveState()
 //--
 //--	if (GetSaveFileName(&ofn))
 
-	if (Save_GTK_File_Selector(FileName) == true)
+	printf("Save_GTK_File_Selector 3\n");
+	//if (Save_GTK_File_Selector(FileName) == true)
+	if (1==0)
 	{
 //--		unsigned PathLength = strrchr(FileName, '\\') - FileName;
 //--		strncpy(DefaultPath, FileName, PathLength);
@@ -3175,7 +3204,9 @@ void BeebWin::RestoreState()
 //--
 //--	if (GetOpenFileName(&ofn))
 
-	if (Open_GTK_File_Selector(FileName))	
+	printf("Open_GTK_File_Selector 3\n");
+	//if (Open_GTK_File_Selector(FileName))
+	if(1==0)
 	{
 //--		unsigned PathLength = strrchr(FileName, '\\') - FileName;
 //--		strncpy(DefaultPath, FileName, PathLength);
@@ -3378,7 +3409,7 @@ void BeebWin::LoadPreferences()
 
 	RegRes=SysReg.GetBinaryValue(HKEY_CURRENT_USER,CFG_REG_KEY,"MachineType",&MachineType,binsize);
 	if (!RegRes) {
-		MachineType=0;
+		MachineType=3;
 		SysReg.CreateKey(HKEY_CURRENT_USER,CFG_REG_KEY);
 	}
 
@@ -3552,7 +3583,7 @@ void BeebWin::LoadPreferences()
 
 	RegRes=SysReg.GetBinaryValue(HKEY_CURRENT_USER,CFG_REG_KEY,CFG_SOUND_ENABLED,&SoundDefault,binsize);
 	if (!RegRes) {
-		SoundDefault=1;
+	  SoundDefault=0; // ARJ2020
 	}
 
 	RegRes=SysReg.GetBinaryValue(HKEY_CURRENT_USER,CFG_REG_KEY,"SoundChipEnabled",&SoundChipEnabled,binsize);
@@ -3834,10 +3865,14 @@ void BeebWin::LoadPreferences()
 		m_MenuIdAMXAdjust = dword;
 	}
 	else {
+	  /*
 		sprintf(DefValue, "%d", IDM_AMX_ADJUSTP30);
 		GetPrivateProfileString(CFG_AMX_SECTION, CFG_AMX_ADJUST, DefValue,
 			CfgValue, sizeof(CfgValue), CFG_FILE_NAME);
 		m_MenuIdAMXAdjust = atoi(CfgValue);
+	  */
+	  // ARJ Start with no sdjustment for amx mouse
+	  m_MenuIdAMXAdjust = IDM_AMX_ADJUSTP10 ;
 	}
 //++
 //	m_MenuIdAMXAdjust=IDM_AMX_ADJUSTP30;
@@ -3958,7 +3993,9 @@ void BeebWin::LoadPreferences()
 
     RegRes=SysReg.GetBinaryValue(HKEY_CURRENT_USER,CFG_REG_KEY,"TubeEnabled",&TubeEnabled,binsize);
 	if (!RegRes) {
-		TubeEnabled=0;
+	  //TubeEnabled=0;
+	  // ARJ
+	  TubeEnabled=1;
 	}
 
     RegRes=SysReg.GetBinaryValue(HKEY_CURRENT_USER,CFG_REG_KEY,"Tube186Enabled",&Tube186Enabled,binsize);
@@ -4078,12 +4115,12 @@ void BeebWin::LoadPreferences()
 	if (SysReg.GetDWORDValue(HKEY_CURRENT_USER, CFG_REG_KEY, CFG_WINDOWEDRESOLUTION, dword))
 		cfg_Windowed_Resolution = (int) dword;
 	else
-		cfg_Windowed_Resolution = RESOLUTION_640X480_S;
+	  cfg_Windowed_Resolution = RESOLUTION_640X512; //RESOLUTION_640X480_S;
 
 	if (SysReg.GetDWORDValue(HKEY_CURRENT_USER, CFG_REG_KEY, CFG_FULLSCREENRESOLUTION, dword))
 		cfg_Fullscreen_Resolution = (int) dword;
 	else
-		cfg_Fullscreen_Resolution = RESOLUTION_640X480_S;
+	  cfg_Fullscreen_Resolution = RESOLUTION_640X512; //RESOLUTION_640X480_S;
 
 	Destroy_Screen();
 	Create_Screen();
