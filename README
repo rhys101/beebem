@@ -9,6 +9,12 @@ It is a patched version of BeebEm 0.0.13 with support for the BBC Domesday LV RO
 The oringal BeebEm for Linux can be found at https://github.com/stardot/beebem/tree/rel-0.0.13-linux
 
 To build, first install the Emscripten toolchain for targeting WebAssembly from https://emscripten.org/
+
+The current build is based on version 1.39.12 of the Emscripten sdk, so make sure you install this specific version:
+
+./emsdk install 1.39.12
+./emsdk activate 1.39.12
+
 If you are updating Emscripten on your machine, you may also need to run:
 
 emcc --clear-ports
@@ -32,6 +38,18 @@ emcc -O3 beebem.bc -o beebem.html --preload-file usr/local/share/beebem/ --use-p
 Note that the data and images from the LVRom discs is not included in this source bundle.
 You will need to obtain these from your own copy of the LVRom discs.
 
+The code is currently configured to run on a local web server (127.0.0.1) on port 8080.
 
+On linux, a quick way to bring up a local dev server is:
 
+1. Install nodejs:
+  sudo apt install nodejs
+  sudo apt install npm
 
+2. Install node's http-server:
+  npm install -g http-server
+
+3. Run the server with caching disabled:
+  http-server . -c-1
+
+You can then navigate to http://127.0.0.1:8080/beebem.html and the emulator should load.
