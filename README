@@ -8,6 +8,10 @@ It is a patched version of BeebEm 0.0.13 with support for the BBC Domesday LV RO
 
 The oringal BeebEm for Linux can be found at https://github.com/stardot/beebem/tree/rel-0.0.13-linux
 
+To clone the Domesday branch from this github rebo, run the command:
+
+git clone -b rel-0.0.13-domesday https://github.com/rhys101/beebem.git
+
 To build, first install the Emscripten toolchain for targeting WebAssembly from https://emscripten.org/
 
 The current build is based on version 1.39.12 of the Emscripten sdk, so make sure you install this specific version:
@@ -19,6 +23,11 @@ If you are updating Emscripten on your machine, you may also need to run:
 
 emcc --clear-ports
 
+Depending on your platform, you may also need to install autoconf and python:
+  sudo apt install autoconf python
+
+=====================
+To build:
 
 Run the configuration commands:
 
