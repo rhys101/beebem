@@ -604,7 +604,7 @@ int Create_Screen(void)
 	sdlWindow = SDL_CreateWindow("Beebem",
                           SDL_WINDOWPOS_UNDEFINED,
                           SDL_WINDOWPOS_UNDEFINED,
-				     720, 576, SDL_WINDOW_SHOWN);
+				     				     829, 576, SDL_WINDOW_SHOWN);
 				     //				  width, height, SDL_WINDOW_SHOWN);
 	if (sdlWindow == NULL)
         {
@@ -623,12 +623,12 @@ int Create_Screen(void)
 	sdlTexture = SDL_CreateTexture(sdlRenderer,
 				       SDL_PIXELFORMAT_ABGR8888, // ARJ2020
                                             SDL_TEXTUREACCESS_STREAMING,
-				       720, 556);
-				       //720, 576);
+				       829, 576);
 				       //width, height);
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");  // make the scaled rendering look smoother.
-	SDL_RenderSetLogicalSize(sdlRenderer, width, height);
+	//SDL_RenderSetLogicalSize(sdlRenderer, width, height);
+	SDL_RenderSetLogicalSize(sdlRenderer, 829, 576);
 
 	
 	/* Update GUI pointers to screen surface.
@@ -730,7 +730,8 @@ int InitialiseSDL(int argc, char *argv[])
 	 */
 	flags = SDL_SWSURFACE;  
 	if ( (video_output = SDL_CreateRGBSurface(flags
-	 , BEEBEM_VIDEO_CORE_SCREEN_WIDTH, BEEBEM_VIDEO_CORE_SCREEN_HEIGHT
+						  //, BEEBEM_VIDEO_CORE_SCREEN_WIDTH, BEEBEM_VIDEO_CORE_SCREEN_HEIGHT
+						  , 900, 600
 	 , 8, 0, 0, 0, 0) ) == NULL){
 		fprintf(stderr, "Unable to create a bitmap buffer: %s\n"
 		 , SDL_GetError());
@@ -1005,17 +1006,19 @@ void RenderBackground() {
   }
   // Display background image
   if ( (lvromImageStatus == 2) || (lvromImageStatus == 3) ) {
-    SDL_Rect rect = {-55, -10, 720+120,576+3}; 
+    SDL_Rect src_rect = {6, 3, 768-62, 576-6};
+    SDL_Rect rect = {0, 0, 829, 576};
+
     // ARJ
     if (lvromDisplayStatus == 0) {
       Uint32 col = SDL_MapRGB(screen_ptr->format, 0x00, 0x00, 0x00);
       SDL_FillRect(screen_ptr, NULL, col);
     } else {      
-      SDL_BlitScaled(sdlBackgroundImage, NULL, screen_ptr, &rect);
+      SDL_BlitScaled(sdlBackgroundImage, &src_rect, screen_ptr, &rect);
     }
     SDL_SetColorKey(video_output, SDL_TRUE, SDL_MapRGB(video_output->format, 0, 0, 0) );
   }
-  // ARJ
+  // ARJ2222
   if (lvromDisplayStatus == 2) {
     SDL_SetSurfaceAlphaMod(video_output, 127); // Blended overlay
   } else {
@@ -1208,12 +1211,11 @@ void RenderLine(int line, int isTeletext, int xoffset)
 //			src.w=SDL_WINDOW_WIDTH;
 			src.w=640; //screen_ptr->w;
 
-
 			src.h=1;
 
-			dst.x=40; // ARJ2020
+			dst.x=92; // ARJ2020
 
-			dst.y=window_y+28;
+			dst.y=window_y+36; //+28;
 
 //			dst.w=SDL_WINDOW_WIDTH;
 			dst.w=640; //screen_ptr->w;
